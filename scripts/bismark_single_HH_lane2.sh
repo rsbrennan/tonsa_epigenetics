@@ -1,6 +1,6 @@
 cd ~/tonsa_epigenetics/analysis/aligned/lane2/
 
-for sample in `ls ~/tonsa_epigenetics/data/trimmed/lane2 | grep '.fq.gz$' | cut -f 1-3 -d "_"| uniq | grep 'HH'`
+for sample in `ls ~/tonsa_epigenetics/data/trimmed/lane2 | grep '.fq.gz$' | cut -f 1-3 -d "_"| uniq | grep 'HH_F25_3\|HH_F25_4'`
 
 do
 
