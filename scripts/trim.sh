@@ -17,8 +17,7 @@ echo $base started
     ${base}_1.fq.gz ${base}_1_unpaired.fq.gz  \
     ${base}_2.fq.gz ${base}_2_unpaired.fq.gz \
     ILLUMINACLIP:TruSeq3-PE-2.fa:2:30:10:8:TRUE \
-    LEADING:2 TRAILING:2 \
-    SLIDINGWINDOW:4:2 \
+    SLIDINGWINDOW:5:20 \
     MINLEN:31
 
 echo $i done
