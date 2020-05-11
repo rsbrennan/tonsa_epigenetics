@@ -11,7 +11,7 @@ do
         --output_dir ~/tonsa_epigenetics/analysis/aligned/lane1/ \
         -1 ~/tonsa_epigenetics/data/trimmed/${sample}_1.fq.gz \
         -2 ~/tonsa_epigenetics/data/trimmed/${sample}_2.fq.gz \
-        --rg_tag --rg_id ${sample} --rg_sample ${sample} --un --gzip --local
+        --rg_tag --rg_id ${sample} --rg_sample ${sample} --un --gzip --local --maxins 1000
 
     echo "done with sample ${sample}"
 
