@@ -5,13 +5,13 @@
 
 # mapping rates
 
-![](figures/map_rates.png)
+![](../figures/map_rates.png)
 
 between the F25 samples, relatively similar mapping rates. The righer rates in F0 and F3 likely have to do with higher input dna. Those samples had more than 30 indivs.
 
 # mbias
 
-![](figures/mbias_all.png)
+![](../figures/mbias_all.png)
 
 There is bias in the first 2 bases. Remove them from the methylation calls. This is standard practice in RRBS data.
 
@@ -24,11 +24,11 @@ loci present in all samples > 20x coverage:
 # visualization, broad patterns
 
 Percent methylation where boxes indicate 95% CI of the mean  
-![](figures/meth_percent.png)
+![](../figures/meth_percent.png)
 
 
 
-![](figures/mds_edgeR.png)
+![](../figures/mds_edgeR.png)
 
 
 # differential methylation
@@ -90,13 +90,13 @@ An additional layer, which is typical in methylation studies, is requiring a min
 Note that all plots are normalized to AA_F25 mean methylation levels, so show relative change from this.
 
 ##### HH plot
-![](figures/heatmap_HH_pw.png)
+![](../figures/heatmap_HH_pw.png)
 
 ##### HA plot
-![](figures/heatmap_HA_pw.png)
+![](../figures/heatmap_HA_pw.png)
 
 ##### AH plot
-![](figures/heatmap_AH_pw.png)
+![](../figures/heatmap_AH_pw.png)
 
 ### Average difference
 
@@ -124,12 +124,12 @@ Note that all plots are normalized to AA_F25 mean methylation levels, so show re
 
 
 ##### HH plot
-![](figures/heatmap_HH_av.png)
+![](../figures/heatmap_HH_av.png)
 
 ##### HA plot
-![](figures/heatmap_HA_av.png)
+![](../figures/heatmap_HA_av.png)
 
 ##### AH plot
-![](figures/heatmap_AH_av.png)
+![](../figures/heatmap_AH_av.png)
 
 
