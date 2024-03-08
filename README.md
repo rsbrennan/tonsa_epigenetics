@@ -2,12 +2,7 @@
 
 This repository contains code to run analyses for:
 
-```
-
-Epigenetic and evolutionary mechanisms uniquely contribute to rescue from global change. Brennan... Pespeni. 
-
-```
-
+`Epigenetic and evolutionary mechanisms uniquely contribute to rescue from global change. Brennan... Pespeni.`
 
 ### Data availability
 
