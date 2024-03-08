@@ -1,6 +1,13 @@
 # tonsa epigenetics
 
-in `~/tonsa_epigenetics/scripts/MS_scripts`
+This repository contains code to run analyses for:
+
+```
+
+Epigenetic and evolutionary mechanisms uniquely contribute to rescue from global change. Brennan... Pespeni. 
+
+```
+
 
 ### Data availability
 
