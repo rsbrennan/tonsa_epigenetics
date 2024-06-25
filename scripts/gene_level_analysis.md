@@ -1,6 +1,5 @@
 # gene level analysis
 
-files of needed:
 
 annotation gff: `~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.fa.gff3`
 methylation file: `~/tonsa_epigenetics/analysis/diff_methylation/methylation_summary.txt`
@@ -609,17 +608,17 @@ summary(fit1)
       #  meth$hh_delta_F0_meth <- meth$aa_F00_mean_meth - meth$hh_F25_mean_meth
       # so positive is decrease in HH, negative is increase in HH.
 
-p1 <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_F25_meth*-1))) +
+p1_scatter <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_F25_meth*-1))) +
         geom_hline(yintercept=0, linetype="dashed", color="grey60") +
         geom_vline(xintercept=0, linetype="dashed", color="grey60") +
         geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
         stat_smooth(method = "lm") +
         # geom_beeswarm() +
-        theme_classic(base_size = 16) +
+        theme_classic() +
       xlab("Mean change in OWA methylation") +
-      ylab("log2(OWA/Ambient)")
+      labs(y = expression(log[2]~(OWA/Ambient)))  # Y-axis label with subscript
 
-ggsave(p1, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig.pdf"), h=3, w=4)
+ggsave(p1_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig.pdf"), h=3, w=4)
 
 
 ########################################################################################################
@@ -681,6 +680,36 @@ p1 <- ggplot(dge_meth, aes(x=hh_F25_mean_meth,y=DGE_sig,fill=DGE_sig, group= DGE
 ggsave(p1, file= ("~/tonsa_epigenetics/figures/epi_plasticity_GH.pdf"), h=3.5, w=5.5)
 
 
+# make violin plot:
+
+dge_meth$plasticity <- ifelse(dge_meth$DGE_sig == TRUE, "Plastic\nGenes", "Non-plastic\nGenes")
+
+pviolin <- ggplot(dge_meth, aes(y=hh_F25_mean_meth, x=plasticity, fill=plasticity, group= plasticity)) +
+  geom_violin(alpha=0.5) + 
+  #scale_y_discrete(expand = c(0, 0)) +     # will generally have to set the `expand` option
+  #scale_x_continuous(expand = c(0, 0)) + 
+  #coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
+  theme_classic() +
+   #geom_quasirandom() +
+        scale_fill_manual(values=c("gray50", "#9B1E03")) +
+        scale_color_manual(values=c("gray50", "#9B1E03")) +
+    #geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
+    #         linetype="dashed", size=1.5) +
+    theme(legend.position="none") +
+  #stat_summary(fun = mean, geom = "crossbar", 
+  #             fun.min = mean, fun.max = mean, 
+  #             width = 0.3, size = 0.75, color = "black") +
+    stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
+    xlab(NULL) +
+    ylab("OWA % Methylation")
+
+ggsave(pviolin, file= ("~/tonsa_epigenetics/figures/epi_plasticity_violin_GH.pdf"), h=3.5, w=3.5)
+
+ggsave(ggarrange(p1_scatter, pviolin, labels="AUTO"), 
+            file="~/tonsa_epigenetics/figures/epi_plasticity_combined_GH.pdf",
+            h=3, w=6)
+
+
 #### ambient
 
 dge <- read.csv("~/tonsa_epigenetics/analysis/DGE_AAAA_vs_HHAA.txt", header=T, sep="\t")
@@ -714,20 +743,29 @@ ks.test((dge_meth$aa_F25_mean_meth[dge_meth$DGE_sig == TRUE]),
         (dge_meth$aa_F25_mean_meth[dge_meth$DGE_sig == FALSE]))
 # D = 0.16136, p-value = 8.66e-08
 
-p1 <- ggplot(dge_meth, aes(x=aa_F25_mean_meth,y=DGE_sig,fill=DGE_sig, group= DGE_sig)) +
-  geom_density_ridges(scale = 4.5, alpha=0.3,
-    jittered_points = TRUE,
-    position = position_points_jitter(width = 0.0, height = 0),
-    point_shape = '', point_size = 1.5, point_alpha = 0.5
-  ) + 
-  scale_y_discrete(expand = c(0, 0)) +     # will generally have to set the `expand` option
-  scale_x_continuous(expand = c(0, 0)) + 
-  coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
-  theme_ridges() +
+dge_meth$plasticity <- ifelse(dge_meth$DGE_sig == TRUE, "Plastic\nGenes", "Non-plastic\nGenes")
+
+
+pviolin2 <- ggplot(dge_meth, aes(y=aa_F25_mean_meth, x=plasticity, fill=plasticity, group= plasticity)) +
+  geom_violin(alpha=0.5) + 
+  #scale_y_discrete(expand = c(0, 0)) +     # will generally have to set the `expand` option
+  #scale_x_continuous(expand = c(0, 0)) + 
+  #coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
+  theme_classic() +
+   #geom_quasirandom() +
         scale_fill_manual(values=c("gray50", "#9B1E03")) +
         scale_color_manual(values=c("gray50", "#9B1E03")) +
-    theme(axis.text=element_text(size=14),
-        axis.title=element_text(size=16,face="bold")) +
-    stat_summary(size=2, shape=21)
+    #geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
+    #         linetype="dashed", size=1.5) +
+    theme(legend.position="none") +
+  #stat_summary(fun = mean, geom = "crossbar", 
+  #             fun.min = mean, fun.max = mean, 
+  #             width = 0.3, size = 0.75, color = "black") +
+    stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
+    xlab(NULL) +
+    ylab("Ambient % Methylation")
 
-ggsave(p1, file= ("~/tonsa_epigenetics/figures/epi_plasticity_AM.pdf"), h=3.5, w=5.5)
+ggsave(pviolin2, file= ("~/tonsa_epigenetics/figures/epi_plasticity_AM.pdf"), h=3, w=4)
+
+
+```
