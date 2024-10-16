@@ -1,9 +1,9 @@
 # gene level analysis
 
-
 annotation gff: `~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.fa.gff3`
 methylation file: `~/tonsa_epigenetics/analysis/diff_methylation/methylation_summary.txt`
 snp table: `~/tonsa_genomics/analysis/results_table.txt`
+
 
 ```bash
 ## make bed files
@@ -52,7 +52,7 @@ categories:
 - upstream 
 - downstream
 
-Already done for SNPs, from PNAS paper.
+Already done for SNPs, from 2022 paper.
 
 
 ```python
@@ -98,9 +98,9 @@ exon_in.annotation.fillna(value="-", inplace=True)
 gene_in[5] = gene_in[5].replace(".", "-")
 exon_in[5] = exon_in[5].replace(".", "-")
 
-snp_in["class"] = str(np.nan)
-snp_in["annotation"] = str(np.nan)
-snp_in["distance"] = str(np.nan)
+snp_in["class"] = np.nan
+snp_in["annotation"] = np.nan
+snp_in["distance"] = np.nan
 
 for idx, row in snp_in.iterrows():
     gene_match = gene_in[gene_in['SNP'] == (row['SNP'])].reset_index(drop=True)
@@ -273,6 +273,9 @@ table(snp$class)
 # read in methylation annotation table
 meth <- read.csv("~/tonsa_genomics/analysis/gene_level_analysis/annotation_table_methylation.txt", header=T, sep="\t")
 colnames(meth) <- gsub("_af", "",colnames(meth))
+table(meth$class)
+#          - downstream       exon     intron   promoter
+#     43442       6251      34594       5362       6558
 
 # read in percent methylation
 pm <- read.csv("~/tonsa_epigenetics/analysis/diff_methylation/methylation_percent.txt", header=T, sep="\t")
@@ -284,14 +287,6 @@ drops <- c("POS.y","CHR.y")
 meth <- meth[ , !(names(meth) %in% drops)]
 colnames(meth) <- c("SNP", "CHR", "POS", colnames(meth)[4:ncol(meth)])
 
-write.table(meth , "~/tonsa_genomics/analysis/gene_level_analysis/methylation_results_table.txt", row.names=F, quote=F, sep="\t")
-
-# could read in the methylation table here, if starting from methylation_results_table.txt
-
-genes_meth <- (unique(unlist(strsplit(as.character(meth$annotation),split = ";"))))
-genes_snp <- (unique(unlist(strsplit(as.character(snp$annotation),split = ";"))))
-genes <- unique(c(genes_meth, genes_snp))
-
 # calculate change in methylation so these are carried over.
 meth$aa_delta_F0_meth <- meth$aa_F00_mean_meth - meth$aa_F25_mean_meth
 meth$ah_delta_F0_meth <- meth$aa_F00_mean_meth - meth$ah_F25_mean_meth
@@ -302,9 +297,12 @@ meth$ah_delta_F25_meth <- meth$aa_F25_mean_meth - meth$ah_F25_mean_meth
 meth$ha_delta_F25_meth <- meth$aa_F25_mean_meth - meth$ha_F25_mean_meth
 meth$hh_delta_F25_meth <- meth$aa_F25_mean_meth - meth$hh_F25_mean_meth
 
+
 meth_relocated <- meth %>% relocate(class, .after = last_col()) %>% relocate(annotation, .after = last_col()) %>% relocate(distance, .after = last_col())
 
 meth <- meth_relocated
+
+write.table(meth , "~/tonsa_genomics/analysis/gene_level_analysis/methylation_results_table.txt", row.names=F, quote=F, sep="\t")
 
 # drop some columns from meth, these are unnecessary
 drops <- c("ah_large", "ha_large", "hh_large", "POS.y","CHR.y")
@@ -325,58 +323,64 @@ colnames(meth)[34:39] <- paste(colnames(meth)[34:39], "_meth", sep="")
 
 genes_meth <- (unique(unlist(strsplit(as.character(meth$annotation),split = ";"))))
 genes_snp <- (unique(unlist(strsplit(as.character(snp$annotation),split = ";"))))
+genes <- unique(c(genes_meth, genes_snp))
 
 #####
 # Methylation
 #####
 
-class_all <- as.vector(unique(snp$class))
-class_ids <- list(class_all, c("exon", "intron"), c("exon"), c("promoter"))
-names(class_ids) <- c("all", "genic", "exon", "promoter")
+class_all <- unique(snp$class)
+class_ids <- list(all = class_all, genic = c("exon", "intron"), exon = c("exon"), promoter = c("promoter"))
 
-# make empty list to hold dataframes that we'll fill in
-meth_out <- vector(mode = "list", length = 4)
-names(meth_out) <- c("all", "genic", "exon", "promoter")
+# Create empty list to hold dataframes
+meth_out <- vector("list", length(class_ids))
+names(meth_out) <- names(class_ids)
 
-# for each class, get min, mean, etc.
-for(class_index in 1:length(class_ids)){
-    # filter to get only the loci in the class of interest.
-    tmp_filt <- meth %>% filter(class %in% as.vector(class_ids[[class_index]]) )
-    # get the unique genes from the filtered dataset we just made
-    genes_filt <- (unique(unlist(strsplit(as.character(tmp_filt$annotation),split = ";"))))
-    # make the dataframe that we need to fill in
-    tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(meth)-1))
+# Iterate over each class
+for (class_name in names(class_ids)) {
+  # Filter loci by class
+  tmp_filt <- meth %>% filter(class %in% class_ids[[class_name]])
+  
+  # Get unique genes
+  genes_filt <- unique(unlist(strsplit(as.character(tmp_filt$annotation), split = ";")))
+  
+  # Create the dataframe
+    tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(meth)+2))
     colnames(tmp_df) <- c("gene", "n_meth",
                         colnames(meth)[4:(ncol(meth)-3)],
-                        "ah_fdr_meth_min","ha_fdr_meth_min","hh_fdr_meth_min"
+                        "ah_fdr_meth_min","ha_fdr_meth_min","hh_fdr_meth_min",
+                        "ah_delta_meth_min","ha_delta_meth_min","hh_delta_meth_min"
                         )
-    # loop over all the genes in this df, save mean, number snps, etc.
-    for(i in 1:length(genes_filt)){
-        # pull down loci that match each gene
-        tmp_gene <- tmp_filt[grep(genes_filt[i], tmp_filt$annotation),]
-        # add gene to output df
-        tmp_df$gene[i] <- genes_filt[i]
+    tmp_df$gene <- genes_filt
 
-        # save number of loci
-        tmp_df$n_meth[i] <- nrow(tmp_gene)
-
-        # take colmeans 
-        tmp_df[i, 3:(ncol(tmp_df)-3)] <- colMeans(tmp_gene[,4:(ncol(tmp_gene)-3)])
-
-        # let's also take the min p value for each set, so I can parse by significant etc, later.
-        tmp_df$ah_fdr_meth_min[i] <- min(tmp_gene$ah_fdr_meth, na.rm=TRUE)
-        tmp_df$ha_fdr_meth_min[i] <- min(tmp_gene$ha_fdr_meth, na.rm=TRUE)
-        tmp_df$hh_fdr_meth_min[i] <- min(tmp_gene$hh_fdr_meth, na.rm=TRUE)
-
-        if(i %% 500 == 0){print(i)}
+  # Iterate over each gene
+  for (i in seq_along(genes_filt)) {
+    tmp_gene <- tmp_filt[grep(genes_filt[i], tmp_filt$annotation), ]
+    
+    # Populate the dataframe
+    tmp_df$gene[i] <- genes_filt[i]
+    tmp_df$n_meth[i] <- nrow(tmp_gene)
+    tmp_df[i, 3:(ncol(tmp_df) - 6)] <- colMeans(tmp_gene[, 4:(ncol(tmp_gene) - 3)], na.rm = TRUE)
+    tmp_df$ah_fdr_meth_min[i] <- min(tmp_gene$ah_fdr_meth, na.rm = TRUE)
+    tmp_df$ha_fdr_meth_min[i] <- min(tmp_gene$ha_fdr_meth, na.rm = TRUE)
+    tmp_df$hh_fdr_meth_min[i] <- min(tmp_gene$hh_fdr_meth, na.rm = TRUE)
+    # Compute the index of the maximum absolute value
+    max_abs_ah <- which.max(abs(tmp_gene$ah_delta_F25_meth))
+    max_abs_ha <- which.max(abs(tmp_gene$ha_delta_F25_meth))
+    max_abs_hh <- which.max(abs(tmp_gene$hh_delta_F25_meth))
+    tmp_df$ah_delta_meth_min[i] <- tmp_gene$ah_delta_F25_meth[max_abs_ah]
+    tmp_df$ha_delta_meth_min[i] <- tmp_gene$ha_delta_F25_meth[max_abs_ha]
+    tmp_df$hh_delta_meth_min[i] <- tmp_gene$hh_delta_F25_meth[max_abs_hh]
+  
+    if (i %% 500 == 0) {
+      print(i)
     }
-
-    # add to the list of dataframes
-    meth_out[[names(class_ids)[class_index]]] <- tmp_df
-    print("done with")
-    print(names(class_ids)[class_index])
+  }
+  
+  # Add to the list of dataframes
+  meth_out[[class_name]] <- tmp_df
+  print(paste("done with", class_name))
 }
-
 
 
 #############
@@ -420,7 +424,7 @@ for(class_index in 1:length(class_ids)){
         tmp_df$ha_pval_AF_min[i] <- min(tmp_gene$ha_fdr, na.rm=TRUE)
         tmp_df$hh_pval_AF_min[i] <- min(tmp_gene$hh_fdr, na.rm=TRUE)
 
-        if(i %% 2500 == 0){print(i)}
+        if(i %% 500 == 0){print(i)}
     }
 
     # add to the list of dataframes
@@ -451,7 +455,7 @@ snp_meth_list <- list()
 snp_meth_list[[1]] <- merge(snp_out[['all']], meth_out[['all']], by="gene")
 
 names(snp_meth_list) <- "all"
-names(snp_meth_list) <- names(snp_out)
+#names(snp_meth_list) <- names(snp_out)
 
 
 ##################################################################################
@@ -548,7 +552,7 @@ dge$gene <- row.names(dge)
 
 
 dge_meth_list <- list()
-dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']],      by="gene")
+dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']], by="gene")
 
 names(dge_meth_list) <- "all"
 sapply(dge_meth_list, nrow)
@@ -574,30 +578,21 @@ dge_meth$DGE_sig <- ifelse(dge_meth$padj < 0.05, TRUE, FALSE)
 dge_meth <- dge_meth[which(dge_meth$n_meth > 4),]
 nrow(dge_meth)
 #1772
-SigDGE_SigMeth <- sum(dge_meth$DGE_sig ==TRUE & dge_meth$Meth_hh_sig == TRUE , na.rm=T)
 
-SigDGE_NSMeth <- sum(dge_meth$DGE_sig ==TRUE & dge_meth$Meth_hh_sig == FALSE , na.rm=T)
-
-NSDGE_SigMeth <- sum(dge_meth$DGE_sig ==FALSE & dge_meth$Meth_hh_sig == TRUE , na.rm=T)
-NSDGE_NSMeth <- sum(dge_meth$DGE_sig ==FALSE & dge_meth$Meth_hh_sig == FALSE , na.rm=T)
-
-c(SigDGE_SigMeth,SigDGE_NSMeth,NSDGE_SigMeth,NSDGE_NSMeth)
-# 3   79  194 1496
-
-fisher.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig))
-# p-value = 0.02876
 chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig))$expected
-chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig),correct = FALSE)
-
-
-mu <- ddply(dge_meth, "Meth_hh_sig", summarise, grp.mean=mean(abs(log2FoldChange)))
-mu <- ddply(dge_meth, "Meth_hh_sig", summarise, grp.mean=median(abs(log2FoldChange)))
+chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig),correct = TRUE)
+# p-value = 0.02876, but lower than expected. 
 
 ################################
 # make scatter plot
 ################################
 
 dge_meth_sig <- dge_meth[which(dge_meth$Meth_hh_sig == TRUE),]
+nrow(dge_meth_sig)
+# 197
+
+head(dge_meth_sig[order(abs(dge_meth_sig$hh_delta_F25_meth)), ])
+
 
 fit1 <- lm(log2FoldChange ~ hh_delta_F25_meth, data = dge_meth_sig)
 summary(fit1)
@@ -619,6 +614,35 @@ p1_scatter <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_F25_meth*
       labs(y = expression(log[2]~(OWA/Ambient)))  # Y-axis label with subscript
 
 ggsave(p1_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig.pdf"), h=3, w=4)
+
+
+
+#########----------------------------------------------------------------------------
+# max rather than mean
+
+
+dge_meth_sig2 <- dge_meth[which(dge_meth$Meth_hh_sig == TRUE & abs(dge_meth$hh_delta_meth_min) > 0.1),]
+nrow(dge_meth_sig2)
+#154
+
+fit1 <- lm(log2FoldChange ~ hh_delta_meth_min, data = dge_meth_sig2)
+summary(fit1)
+# Multiple R-squared:  0.02743, Adjusted R-squared:  0.02103
+# F-statistic: 4.287 on 1 and 152 DF,  p-value: 0.0401
+
+p2_scatter <- ggplot(dge_meth_sig2, aes(y=log2FoldChange, x = (hh_delta_meth_min*-1))) +
+        geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+        geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+        geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+        stat_smooth(method = "lm") +
+        # geom_beeswarm() +
+        theme_classic() +
+      xlab("Max change in OWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient))) # Add inherit.aes = FALSE
+
+ggsave(p2_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig_MAX.pdf"), h=3, w=4)
+
+
 
 
 ########################################################################################################
