@@ -35,7 +35,7 @@ Differential methylation analysis: `differential_methylation.R`
 
 Conversion efficiency from the phix spike in: `conversion_efficiency.md`
 
-Compare allele frequency and methylation divergence: 
+Compare allele frequency and methylation divergence: `methylation_vs_fst.R` 
 
 
 Gene level analysis to compare methylation to DGE and allele freq divergence at the gene level: `gene_level_analysis.md`
@@ -45,13 +45,16 @@ Gene level analysis to compare methylation to DGE and allele freq divergence at 
 
 ### Figures:
 
-- Fig. 1: `differential_methylation.R`
-- Fig. 2: `methylation_vs_fst.R`
-- Fig. 3: `gene_level_analysis.md` 
+- Fig. 2: `differential_methylation.R`
+- Fig. 3: `methylation_vs_fst.R`
+- Fig. 4: `gene_level_analysis.md` 
 - Fig. S1: `differential_methylation.R`
 - Fig. S2: `gene_level_analysis.md`
-- Fig. S3: `sliding_win_fst_epi.R`
-- Fig. S4: `sliding_win_fst_epi.R`
-- Fig. S5: `pi.md`
-- Fig. S6: `gene_level_analysis.md`
-- Fig. S7: `differential_methylation.R`
+- Fig. S3: `gene_level_analysis.md`
+- Fig. S4: `methylation_vs_fst.R`
+- Fig. S5: `methylation_vs_fst.R`
+- Fig. S6: `methylation_vs_fst.R`
+- Fig. S7: `methylation_vs_fst.R`
+- Fig. S8: `pi.md`
+- Fig. S9: `gene_level_analysis.md`
+- Fig. S10: `differential_methylation.R`
