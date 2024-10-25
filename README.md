@@ -8,7 +8,7 @@ This repository contains code to run analyses for:
 
 Raw reads for all analyses can be found on NCBI BioProject `PRJNA590963`.
 
-Other relevant files for the analysis can be found on Zenodo: ADD LINK HERE
+Other relevant files for the analysis can be found on Zenodo: https://doi.org/10.5281/zenodo.10797734
 
 
 ### scripts to run analyses
