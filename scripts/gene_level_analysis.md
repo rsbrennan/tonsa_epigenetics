@@ -792,4 +792,98 @@ pviolin2 <- ggplot(dge_meth, aes(y=aa_F25_mean_meth, x=plasticity, fill=plastici
 ggsave(pviolin2, file= ("~/tonsa_epigenetics/figures/epi_plasticity_AM.pdf"), h=3, w=4)
 
 
+
+#-------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------
+#
+# link methylaiton to expression level overall
+
+dge <- read.csv("~/tonsa_epigenetics/analysis/DGE_norm_counts.txt", header=T, sep="\t")
+dge$gene <- row.names(dge)
+
+dge_meth_list <- list()
+dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']],      by="gene")
+dge_meth_list[[2]] <- inner_join(dge, meth_out[['genic']],    by="gene")
+dge_meth_list[[3]] <- inner_join(dge, meth_out[['exon']],     by="gene")
+dge_meth_list[[4]] <- inner_join(dge, meth_out[['promoter']], by="gene")
+
+names(dge_meth_list) <- names(snp_out)
+sapply(dge_meth_list, nrow)
+#     all    genic     exon promoter
+#    2824     2340     1762  
+
+
+dge_meth <- dge_meth_list[[3]]
+
+# assign sig or not:
+
+dge_meth <- dge_meth[which(dge_meth$n_meth > 5),]
+nrow(dge_meth)
+# 1193
+#plot(dge_meth$HH_F25_1_meth, log2(dge_meth$HHHH_F1_REP1 ))
+
+# I should calculate the mean expression
+# then use these for the plots.
+
+dge_meth$AA_mean_expression <- rowMeans(dge_meth[, c("AAAA_F1_REP1", 
+                                                     "AAAA_F1_REP2", 
+                                                     "AAAA_F1_REP3",
+                                                     "AAAA_F1_REP4")])
+
+
+summary(lm(log2(dge_meth$AA_mean_expression ) ~dge_meth$aa_F25_mean_meth))
+#                          Estimate Std. Error t value Pr(>|t|)
+#(Intercept)                8.86156    0.07603  116.56   <2e-16 ***
+#dge_meth$aa_F25_mean_meth -3.99833    0.29128  -13.73   <2e-16 ***
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+#Residual standard error: 2.245 on 1191 degrees of freedom
+#Multiple R-squared:  0.1366,	Adjusted R-squared:  0.1359
+#F-statistic: 188.4 on 1 and 1191 DF,  p-value: < 2.2e-16
+
+dge_meth$log2 <- log2(dge_meth$AA_mean_expression)
+p1 <- ggplot(dge_meth, aes(y=log2, x = aa_F25_mean_meth)) +
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black")+
+	    stat_smooth(method = "lm") +
+	    # geom_beeswarm() +
+		theme_classic() +
+		ylab("log2 expression") +
+		xlab("percent methylation")
+
+#ggsave(p1, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_expression.pdf"), h=4, w=4)
+
+
+########
+
+dge <- read.csv("~/tonsa_genomics/analysis/DGE_norm_counts.txt", sep="\t")
+dge$gene <- row.names(dge)
+dfp <- merge(meth_out[['exon']], dge, by="gene")
+
+fout <- dfp %>% filter(n_meth > 4)
+nrow(fout)
+# 1308
+x=log2(fout$AAAA_F1_REP2)
+y=fout$AA_F25_2_meth
+df_plot <- data.frame(log2_expression_count = x, percent_methylation = y)
+
+
+fout$methylation_category <- "low"
+fout$methylation_category[which(fout$aa_F25_mean_meth > 0.2)] <- "high"
+
+fout$AA_mean_expression <- log2(rowMeans(fout[,grep("AAAA_F1_REP", colnames(fout))]))
+
+p2 <- ggplot(fout, aes(AA_mean_expression, fill=methylation_category)) +
+	    geom_histogram(position="dodge")+
+		theme_bw() + 
+		xlab("log2 mean expression")
+#p2
+
+ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO")
+
+ggsave("~/tonsa_epigenetics/figures/perc_meth_vs_expression_S12.png",ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO"), h=4, w=7)
+ggsave("~/tonsa_epigenetics/figures/perc_meth_vs_expression_S12.pdf",ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO"), h=4, w=7)
+
 ```
