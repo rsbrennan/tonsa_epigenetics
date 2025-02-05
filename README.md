@@ -2,14 +2,15 @@
 
 This repository contains code to run analyses for:
 
-`Epigenetic and evolutionary mechanisms uniquely contribute to rescue from global change. Brennan... Pespeni.`
+Complementary genetic and epigenetic changes facilitate rapid adaptation to multiple global change stressors
+ 
+Authors: Reid S. Brennan, James A. deMayo, Michael Finiguerra, Hannes Baumann, Hans G. Dam, Melissa H. Pespeni
 
 ### Data availability
 
 Raw reads for all analyses can be found on NCBI BioProject `PRJNA590963`.
 
 Other relevant files for the analysis can be found on Zenodo: https://doi.org/10.5281/zenodo.10797734
-
 
 ### scripts to run analyses
 
@@ -37,10 +38,7 @@ Conversion efficiency from the phix spike in: `conversion_efficiency.md`
 
 Compare allele frequency and methylation divergence: `methylation_vs_fst.R` 
 
-
 Gene level analysis to compare methylation to DGE and allele freq divergence at the gene level: `gene_level_analysis.md`
-
-
 
 
 ### Figures:
@@ -55,6 +53,9 @@ Gene level analysis to compare methylation to DGE and allele freq divergence at 
 - Fig. S5: `methylation_vs_fst.R`
 - Fig. S6: `methylation_vs_fst.R`
 - Fig. S7: `methylation_vs_fst.R`
-- Fig. S8: `pi.md`
-- Fig. S9: `gene_level_analysis.md`
-- Fig. S10: `differential_methylation.R`
+- Fig. S8: `fst_pi_epi.md`
+- Fig. S9: `pi.md`
+- Fig. S10: `gene_level_analysis.md`
+- Fig. S11: `fst_pi_epi.md`
+- Fig. S12: `differential_methylation.R`
+
