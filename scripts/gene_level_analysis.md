@@ -1,5 +1,4 @@
 # gene level analysis
-files of needed:
 
 annotation gff: `~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.fa.gff3`
 methylation file: `~/tonsa_epigenetics/analysis/diff_methylation/methylation_summary.txt`
