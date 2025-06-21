@@ -1,24 +1,29 @@
 # gene level analysis
 
+cleaning on Feb 9, to make suitable for pub. see file `gene_level_analysis_2023_02_25` for previous version with more data exploration.
+
+
+
+files of needed:
+
 annotation gff: `~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.fa.gff3`
 methylation file: `~/tonsa_epigenetics/analysis/diff_methylation/methylation_summary.txt`
 snp table: `~/tonsa_genomics/analysis/results_table.txt`
-
 
 ```bash
 ## make bed files
 
 # remove genes and mRNA and cds from gff
 cat ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.gff3 |\
-    awk '$3 != "gene"' |\
-    awk '$3 != "mRNA"' |\
-    awk '$3 != "CDS"' > ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.exon.gff3
+	awk '$3 != "gene"' |\
+	awk '$3 != "mRNA"' |\
+	awk '$3 != "CDS"' > ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.exon.gff3
 
 # use only genes gff
 cat ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.gff3 |\
-    awk '$3 != "exon"' |\
-    awk '$3 != "mRNA"' |\
-    awk '$3 != "CDS"' > ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.gene.gff3
+	awk '$3 != "exon"' |\
+	awk '$3 != "mRNA"' |\
+	awk '$3 != "CDS"' > ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.gene.gff3
 
 
 ##############################
@@ -33,14 +38,14 @@ cat ~/tonsa_epigenetics/analysis/diff_methylation/methylation_summary.txt | tail
 # first get closest of exon only
 
 bedtools closest -D b -t all -b ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.exon.gff3 \
-                    -a ~/tonsa_epigenetics/analysis/gene_level_analysis/meth.epi.bed \
-                    > ~/tonsa_epigenetics/analysis/gene_level_analysis/snp.exons.epi.bed
+					-a ~/tonsa_epigenetics/analysis/gene_level_analysis/meth.epi.bed \
+					> ~/tonsa_epigenetics/analysis/gene_level_analysis/snp.exons.epi.bed
 # this can return multiple matches for a single snp.
 
 # Then closest for gene
 bedtools closest -D b -t all -b ~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.SORTED.gene.gff3 \
-                    -a ~/tonsa_epigenetics/analysis/gene_level_analysis/meth.epi.bed \
-                    > ~/tonsa_epigenetics/analysis/gene_level_analysis/snp.genes.epi.bed
+					-a ~/tonsa_epigenetics/analysis/gene_level_analysis/meth.epi.bed \
+					> ~/tonsa_epigenetics/analysis/gene_level_analysis/snp.genes.epi.bed
 
 ```
 
@@ -103,141 +108,141 @@ snp_in["annotation"] = np.nan
 snp_in["distance"] = np.nan
 
 for idx, row in snp_in.iterrows():
-    gene_match = gene_in[gene_in['SNP'] == (row['SNP'])].reset_index(drop=True)
-    exon_match = exon_in[exon_in['SNP'] == (row['SNP'])].reset_index(drop=True)
-    #### check for not matches.
-    if (exon_match.empty and gene_match.empty):
-        #print("no match!")
-        snp_in.at[idx,'class'] = "-"
-        snp_in.at[idx,'annotation'] = "-"
-        snp_in.at[idx,'distance'] = "-"
-    #### check if there's more than 1 match. multiple genes
-    if len(gene_match.index) > 1 and len(exon_match.index) > 1:
-    # if both match and not missing see which is closer. or if value is 0, take exon
-        ### if both equal to zero, take exon. if exon in one, intron in another. call it a exon.
-        if any(x == 0 for x in exon_match[12]):
-            snp_in.at[idx,'class'] = "exon"
-            # find which are 0
-            idx_zero = exon_match.index[exon_match[12] == 0].tolist()
-            for ex_row in idx_zero:
-                snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + exon_match['annotation'][ex_row].split(";")[0]
-            snp_in.at[idx,'distance'] = 0
-            # remove the nan
-            snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
-        #### check for 0 in gene, and no 0 in exon these are introns. assing to both genes
-        if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
-            snp_in.at[idx,'class'] = "intron"
-            # find the annotation that is 0
-            idx_zero = gene_match.index[gene_match[12] == 0].tolist()
-            for ex_row in idx_zero:
-                snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + gene_match['annotation'][ex_row].split(";")[0]
-            snp_in.at[idx,'distance'] = 0
-            # remove the nan
-            snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
-        # check if no zeros, then find lowest.
-        # In this case, it can't be an exon. must be either up or downstream
-        if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
-            #print("none are zero")
-            snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[gene_match[12].abs().idxmin()].split(";")[0]
-            snp_in.at[idx,'distance'] = gene_match[12].iloc[gene_match[12].abs().idxmin()]
-            if snp_in.at[idx,'distance'] < 0:
-                snp_in.at[idx,'class'] = "promoter"
-            if snp_in.at[idx,'distance'] > 0:
-                snp_in.at[idx,'class'] = "downstream"
-    #### check if one exon, but two genes:
-    if len(gene_match.index) > 1 and len(exon_match.index) == 1:
-        # if exon is 0, choose this one.
-        if any(x == 0 for x in exon_match[12]):
-            snp_in.at[idx,'class'] = "exon"
-            idx_zero = exon_match.index[exon_match[12] == 0].tolist()
-            snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
-            snp_in.at[idx,'distance'] = 0
-        #  check for 0 in gene, and no 0 in exon these are introns. assing to both genes
-        if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
-            #print("exon not 0, gene is 0")
-            snp_in.at[idx,'class'] = "intron"
-            # find the annotation that is 0
-            idx_zero = gene_match.index[gene_match[12] == 0].tolist()
-            for ex_row in idx_zero:
-                snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + gene_match['annotation'][ex_row].split(";")[0]
-            snp_in.at[idx,'distance'] = 0
-            # remove the nan
-            snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
-        # check if no zeros, then find lowest.
-        # In this case, it can't be an exon. must be either up or downstream
-        if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
-            snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[gene_match[12].abs().idxmin()].split(";")[0]
-            snp_in.at[idx,'distance'] = gene_match[12].iloc[gene_match[12].abs().idxmin()]
-            if snp_in.at[idx,'distance'] < 0:
-                snp_in.at[idx,'class'] = "promoter"
-            if snp_in.at[idx,'distance'] > 0:
-                snp_in.at[idx,'class'] = "downstream"
-    # check if two exons, but one genes. only a few hundred of these:
-    if len(gene_match.index) == 1 and len(exon_match.index) > 1:
-        # if both equal to zero, take exon. if exon in one, intron in another. call it a exon.
-        if any(x == 0 for x in exon_match[12]):
-            snp_in.at[idx,'class'] = "exon"
-            idx_zero = exon_match.index[exon_match[12] == 0].tolist()
-            for ex_row in idx_zero:
-                snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + exon_match['annotation'][ex_row].split(";")[0]
-            snp_in.at[idx,'annotation'] = ";".join(pd.unique(snp_in.at[idx,'annotation'].split(";")))
-            snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
-            snp_in.at[idx,'distance'] = 0
-        # first check for 0 in gene, and no 0 in exon these are introns. assing to both genes
-        if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
-            #print("exon not 0, gene is 0")
-            snp_in.at[idx,'class'] = "intron"
-            # find the annotation that is 0
-            idx_zero = gene_match.index[gene_match[12] == 0].tolist()
-            snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
-            snp_in.at[idx,'distance'] = 0
-        # check if no zeros, then find lowest.
-        # In this case, it can't be an exon. must be either up or downstream
-        if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
-            snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0]
-            snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
-            if snp_in.at[idx,'distance'] < 0:
-                snp_in.at[idx,'class'] = "promoter"
-            if snp_in.at[idx,'distance'] > 0:
-                snp_in.at[idx,'class'] = "downstream"
-    #if both match, do they have any actual annotation?
-    if len(gene_match.index) == 1 and len(exon_match.index) == 1:
-        if (exon_match['annotation'].iloc[0] == "-" and gene_match['annotation'].iloc[0] == "-"):
-            snp_in.at[idx,'class'] = "-"
-            snp_in.at[idx,'annotation'] = "-"
-            snp_in.at[idx,'distance'] = "-"
-    # if both match and not missing take exon if its 0.
-    # otherwise, take intron, up, or down stream
-        if (exon_match['annotation'].iloc[0] != "-" and gene_match['annotation'].iloc[0] != "-"):
-            # if both equal to zero, take exon
-            if (exon_match[12].iloc[0] == 0 and gene_match[12].iloc[0] == 0 ):
-                snp_in.at[idx,'class'] = "exon"
-                snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
-                snp_in.at[idx,'distance'] = 0
-            # if one is zero, take that one.
-            else:
-                # first check for 0 in one
-                if (exon_match[12].iloc[0] == 0):
-                    snp_in.at[idx,'class'] = "exon"
-                    snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
-                    snp_in.at[idx,'distance'] = 0
-                if (exon_match[12].iloc[0] != 0 and gene_match[12].iloc[0] == 0 ):
-                    snp_in.at[idx,'class'] = "intron"
-                    snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
-                    snp_in.at[idx,'distance'] = 0
-                # check if upstream
-                # if negative,
-                if (gene_match[12].iloc[0] < 0 ):
-                    snp_in.at[idx,'class'] = "promoter"
-                    snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
-                    snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
-                # check if downstream
-                if (gene_match[12].iloc[0] > 0 ):
-                    snp_in.at[idx,'class'] = "downstream"
-                    snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
-                    snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
-    if idx % 5000 == 0:
-        print(idx)
+	gene_match = gene_in[gene_in['SNP'] == (row['SNP'])].reset_index(drop=True)
+	exon_match = exon_in[exon_in['SNP'] == (row['SNP'])].reset_index(drop=True)
+	#### check for not matches.
+	if (exon_match.empty and gene_match.empty):
+		#print("no match!")
+		snp_in.at[idx,'class'] = "-"
+		snp_in.at[idx,'annotation'] = "-"
+		snp_in.at[idx,'distance'] = "-"
+	#### check if there's more than 1 match. multiple genes
+	if len(gene_match.index) > 1 and len(exon_match.index) > 1:
+	# if both match and not missing see which is closer. or if value is 0, take exon
+		### if both equal to zero, take exon. if exon in one, intron in another. call it a exon.
+		if any(x == 0 for x in exon_match[12]):
+			snp_in.at[idx,'class'] = "exon"
+			# find which are 0
+			idx_zero = exon_match.index[exon_match[12] == 0].tolist()
+			for ex_row in idx_zero:
+				snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + exon_match['annotation'][ex_row].split(";")[0]
+			snp_in.at[idx,'distance'] = 0
+			# remove the nan
+			snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
+		#### check for 0 in gene, and no 0 in exon these are introns. assing to both genes
+		if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
+			snp_in.at[idx,'class'] = "intron"
+			# find the annotation that is 0
+			idx_zero = gene_match.index[gene_match[12] == 0].tolist()
+			for ex_row in idx_zero:
+				snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + gene_match['annotation'][ex_row].split(";")[0]
+			snp_in.at[idx,'distance'] = 0
+			# remove the nan
+			snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
+		# check if no zeros, then find lowest.
+		# In this case, it can't be an exon. must be either up or downstream
+		if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
+			#print("none are zero")
+			snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[gene_match[12].abs().idxmin()].split(";")[0]
+			snp_in.at[idx,'distance'] = gene_match[12].iloc[gene_match[12].abs().idxmin()]
+			if snp_in.at[idx,'distance'] < 0:
+				snp_in.at[idx,'class'] = "promoter"
+			if snp_in.at[idx,'distance'] > 0:
+				snp_in.at[idx,'class'] = "downstream"
+	#### check if one exon, but two genes:
+	if len(gene_match.index) > 1 and len(exon_match.index) == 1:
+		# if exon is 0, choose this one.
+		if any(x == 0 for x in exon_match[12]):
+			snp_in.at[idx,'class'] = "exon"
+			idx_zero = exon_match.index[exon_match[12] == 0].tolist()
+			snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
+			snp_in.at[idx,'distance'] = 0
+		#  check for 0 in gene, and no 0 in exon these are introns. assing to both genes
+		if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
+			#print("exon not 0, gene is 0")
+			snp_in.at[idx,'class'] = "intron"
+			# find the annotation that is 0
+			idx_zero = gene_match.index[gene_match[12] == 0].tolist()
+			for ex_row in idx_zero:
+				snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + gene_match['annotation'][ex_row].split(";")[0]
+			snp_in.at[idx,'distance'] = 0
+			# remove the nan
+			snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
+		# check if no zeros, then find lowest.
+		# In this case, it can't be an exon. must be either up or downstream
+		if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
+			snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[gene_match[12].abs().idxmin()].split(";")[0]
+			snp_in.at[idx,'distance'] = gene_match[12].iloc[gene_match[12].abs().idxmin()]
+			if snp_in.at[idx,'distance'] < 0:
+				snp_in.at[idx,'class'] = "promoter"
+			if snp_in.at[idx,'distance'] > 0:
+				snp_in.at[idx,'class'] = "downstream"
+	# check if two exons, but one genes. only a few hundred of these:
+	if len(gene_match.index) == 1 and len(exon_match.index) > 1:
+		# if both equal to zero, take exon. if exon in one, intron in another. call it a exon.
+		if any(x == 0 for x in exon_match[12]):
+			snp_in.at[idx,'class'] = "exon"
+			idx_zero = exon_match.index[exon_match[12] == 0].tolist()
+			for ex_row in idx_zero:
+				snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'] + ";" + exon_match['annotation'][ex_row].split(";")[0]
+			snp_in.at[idx,'annotation'] = ";".join(pd.unique(snp_in.at[idx,'annotation'].split(";")))
+			snp_in.at[idx,'annotation'] = snp_in.at[idx,'annotation'].replace('nan;','')
+			snp_in.at[idx,'distance'] = 0
+		# first check for 0 in gene, and no 0 in exon these are introns. assing to both genes
+		if all(x != 0 for x in exon_match[12]) and any(x == 0 for x in gene_match[12]):
+			#print("exon not 0, gene is 0")
+			snp_in.at[idx,'class'] = "intron"
+			# find the annotation that is 0
+			idx_zero = gene_match.index[gene_match[12] == 0].tolist()
+			snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
+			snp_in.at[idx,'distance'] = 0
+		# check if no zeros, then find lowest.
+		# In this case, it can't be an exon. must be either up or downstream
+		if all(x  != 0 for x in exon_match[12]) and all(x != 0 for x in gene_match[12]):
+			snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0]
+			snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
+			if snp_in.at[idx,'distance'] < 0:
+				snp_in.at[idx,'class'] = "promoter"
+			if snp_in.at[idx,'distance'] > 0:
+				snp_in.at[idx,'class'] = "downstream"
+	#if both match, do they have any actual annotation?
+	if len(gene_match.index) == 1 and len(exon_match.index) == 1:
+		if (exon_match['annotation'].iloc[0] == "-" and gene_match['annotation'].iloc[0] == "-"):
+			snp_in.at[idx,'class'] = "-"
+			snp_in.at[idx,'annotation'] = "-"
+			snp_in.at[idx,'distance'] = "-"
+	# if both match and not missing take exon if its 0.
+	# otherwise, take intron, up, or down stream
+		if (exon_match['annotation'].iloc[0] != "-" and gene_match['annotation'].iloc[0] != "-"):
+			# if both equal to zero, take exon
+			if (exon_match[12].iloc[0] == 0 and gene_match[12].iloc[0] == 0 ):
+				snp_in.at[idx,'class'] = "exon"
+				snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
+				snp_in.at[idx,'distance'] = 0
+			# if one is zero, take that one.
+			else:
+				# first check for 0 in one
+				if (exon_match[12].iloc[0] == 0):
+					snp_in.at[idx,'class'] = "exon"
+					snp_in.at[idx,'annotation'] = exon_match['annotation'].iloc[0].split(";")[0]
+					snp_in.at[idx,'distance'] = 0
+				if (exon_match[12].iloc[0] != 0 and gene_match[12].iloc[0] == 0 ):
+					snp_in.at[idx,'class'] = "intron"
+					snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
+					snp_in.at[idx,'distance'] = 0
+				# check if upstream
+				# if negative,
+				if (gene_match[12].iloc[0] < 0 ):
+					snp_in.at[idx,'class'] = "promoter"
+					snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
+					snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
+				# check if downstream
+				if (gene_match[12].iloc[0] > 0 ):
+					snp_in.at[idx,'class'] = "downstream"
+					snp_in.at[idx,'annotation'] = gene_match['annotation'].iloc[0].split(";")[0]
+					snp_in.at[idx,'distance'] = gene_match[12].iloc[0]
+	if idx % 5000 == 0:
+		print(idx)
 
 
 snp_in.to_csv('/users/r/b/rbrennan/tonsa_genomics/analysis/gene_level_analysis/annotation_table_methylation.txt', index=False, sep='\t')
@@ -311,15 +316,10 @@ meth <- meth[ , !(names(meth) %in% drops)]
 
 colnames(meth)[2:3] <- c("CHR", "POS")
 colnames(meth)[4:23] <- paste(colnames(meth)[4:23], "_meth", sep="")
-colnames(meth)[34:39] <- paste(colnames(meth)[34:39], "_meth", sep="")
 
 ######
 # need to summarize data on a gene by gene basis to compare to gene expression.
-# I think best here to do this separately for SNPs, methylation
-# first do anything that hits a gene.
-# then do genic (exon and intron)
-# then exon only
-# then promoter only
+
 
 genes_meth <- (unique(unlist(strsplit(as.character(meth$annotation),split = ";"))))
 genes_snp <- (unique(unlist(strsplit(as.character(snp$annotation),split = ";"))))
@@ -345,13 +345,13 @@ for (class_name in names(class_ids)) {
   genes_filt <- unique(unlist(strsplit(as.character(tmp_filt$annotation), split = ";")))
   
   # Create the dataframe
-    tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(meth)+2))
-    colnames(tmp_df) <- c("gene", "n_meth",
-                        colnames(meth)[4:(ncol(meth)-3)],
-                        "ah_fdr_meth_min","ha_fdr_meth_min","hh_fdr_meth_min",
-                        "ah_delta_meth_min","ha_delta_meth_min","hh_delta_meth_min"
-                        )
-    tmp_df$gene <- genes_filt
+	tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(meth)+2))
+	colnames(tmp_df) <- c("gene", "n_meth",
+						colnames(meth)[4:(ncol(meth)-3)],
+						"ah_fdr_meth_min","ha_fdr_meth_min","hh_fdr_meth_min",
+						"ah_delta_meth_min","ha_delta_meth_min","hh_delta_meth_min"
+						)
+	tmp_df$gene <- genes_filt
 
   # Iterate over each gene
   for (i in seq_along(genes_filt)) {
@@ -365,12 +365,12 @@ for (class_name in names(class_ids)) {
     tmp_df$ha_fdr_meth_min[i] <- min(tmp_gene$ha_fdr_meth, na.rm = TRUE)
     tmp_df$hh_fdr_meth_min[i] <- min(tmp_gene$hh_fdr_meth, na.rm = TRUE)
     # Compute the index of the maximum absolute value
-    max_abs_ah <- which.max(abs(tmp_gene$ah_delta_F25_meth))
-    max_abs_ha <- which.max(abs(tmp_gene$ha_delta_F25_meth))
-    max_abs_hh <- which.max(abs(tmp_gene$hh_delta_F25_meth))
-    tmp_df$ah_delta_meth_min[i] <- tmp_gene$ah_delta_F25_meth[max_abs_ah]
-    tmp_df$ha_delta_meth_min[i] <- tmp_gene$ha_delta_F25_meth[max_abs_ha]
-    tmp_df$hh_delta_meth_min[i] <- tmp_gene$hh_delta_F25_meth[max_abs_hh]
+	max_abs_ah <- which.max(abs(tmp_gene$ah_delta_F25_meth))
+	max_abs_ha <- which.max(abs(tmp_gene$ha_delta_F25_meth))
+	max_abs_hh <- which.max(abs(tmp_gene$hh_delta_F25_meth))
+	tmp_df$ah_delta_meth_min[i] <- tmp_gene$ah_delta_F25_meth[max_abs_ah]
+	tmp_df$ha_delta_meth_min[i] <- tmp_gene$ha_delta_F25_meth[max_abs_ha]
+	tmp_df$hh_delta_meth_min[i] <- tmp_gene$hh_delta_F25_meth[max_abs_hh]
   
     if (i %% 500 == 0) {
       print(i)
@@ -395,42 +395,42 @@ snp_out <- vector(mode = "list", length = 4)
 names(snp_out) <- c("all", "genic", "exon", "promoter")
 
 for(class_index in 1:length(class_ids)){
-    # filter to get only the loci in the class of interest.
-    tmp_filt <- snp %>% filter(class %in% as.vector(class_ids[[class_index]]) )
-    # get the unique genes from the filtered dataset we just made
-    genes_filt <- (unique(unlist(strsplit(as.character(tmp_filt$annotation),split = ";"))))
-    # make the dataframe that we need to fill in
-    tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(snp)-1))
-    colnames(tmp_df) <- c("gene", "n_snp",
-                        colnames(snp)[4:(ncol(snp)-4)],
-                        "aa_pval_AF_min","ah_pval_AF_min","ha_pval_AF_min","hh_pval_AF_min"
-                        )
-    # loop over all the genes in this df, save mean, number snps, etc.
-    for(i in 1:length(genes_filt)){
-        # pull down loci that match each gene
-        tmp_gene <- tmp_filt[grep(genes_filt[i], tmp_filt$annotation),]
-        # add gene to output df
-        tmp_df$gene[i] <- genes_filt[i]
+	# filter to get only the loci in the class of interest.
+	tmp_filt <- snp %>% filter(class %in% as.vector(class_ids[[class_index]]) )
+	# get the unique genes from the filtered dataset we just made
+	genes_filt <- (unique(unlist(strsplit(as.character(tmp_filt$annotation),split = ";"))))
+	# make the dataframe that we need to fill in
+	tmp_df <- as.data.frame(matrix(nrow=length(genes_filt), ncol=ncol(snp)-1))
+	colnames(tmp_df) <- c("gene", "n_snp",
+						colnames(snp)[4:(ncol(snp)-4)],
+						"aa_pval_AF_min","ah_pval_AF_min","ha_pval_AF_min","hh_pval_AF_min"
+						)
+	# loop over all the genes in this df, save mean, number snps, etc.
+	for(i in 1:length(genes_filt)){
+		# pull down loci that match each gene
+		tmp_gene <- tmp_filt[grep(genes_filt[i], tmp_filt$annotation),]
+		# add gene to output df
+		tmp_df$gene[i] <- genes_filt[i]
 
-        # save number of loci
-        tmp_df$n_snp[i] <- nrow(tmp_gene)
+		# save number of loci
+		tmp_df$n_snp[i] <- nrow(tmp_gene)
 
-        # take colmeans 
-        tmp_df[i, 3:(ncol(tmp_df)-4)] <- colMeans(tmp_gene[,4:(ncol(tmp_gene)-4)], na.rm=TRUE)
+		# take colmeans 
+		tmp_df[i, 3:(ncol(tmp_df)-4)] <- colMeans(tmp_gene[,4:(ncol(tmp_gene)-4)], na.rm=TRUE)
 
-        # let's also take the min p value for each set
-        tmp_df$aa_pval_AF_min[i] <- min(tmp_gene$aa_fdr, na.rm=TRUE)
-        tmp_df$ah_pval_AF_min[i] <- min(tmp_gene$ah_fdr, na.rm=TRUE)
-        tmp_df$ha_pval_AF_min[i] <- min(tmp_gene$ha_fdr, na.rm=TRUE)
-        tmp_df$hh_pval_AF_min[i] <- min(tmp_gene$hh_fdr, na.rm=TRUE)
+		# let's also take the min p value for each set
+		tmp_df$aa_pval_AF_min[i] <- min(tmp_gene$aa_fdr, na.rm=TRUE)
+		tmp_df$ah_pval_AF_min[i] <- min(tmp_gene$ah_fdr, na.rm=TRUE)
+		tmp_df$ha_pval_AF_min[i] <- min(tmp_gene$ha_fdr, na.rm=TRUE)
+		tmp_df$hh_pval_AF_min[i] <- min(tmp_gene$hh_fdr, na.rm=TRUE)
 
-        if(i %% 500 == 0){print(i)}
-    }
+		if(i %% 500 == 0){print(i)}
+	}
 
-    # add to the list of dataframes
-    snp_out[[names(class_ids)[class_index]]] <- tmp_df
-    print("done with")
-    print(names(class_ids)[class_index])
+	# add to the list of dataframes
+	snp_out[[names(class_ids)[class_index]]] <- tmp_df
+	print("done with")
+	print(names(class_ids)[class_index])
 }
 
 save.image(file = "~/tonsa_genomics/analysis/gene_level_analysis/2023-02_24_gene_level.RData")
@@ -442,11 +442,11 @@ save.image(file = "~/tonsa_genomics/analysis/gene_level_analysis/2023-02_24_gene
 load(file = "~/tonsa_genomics/analysis/gene_level_analysis/2023-02_24_gene_level.RData")
 
 library(ggplot2)
+library(plyr)
 library(dplyr)
 library(ggExtra)
 library(ggpubr)
 library(ggbeeswarm)
-library(plyr)
 library(ggridges)
 
 # make merged list to compare
@@ -456,7 +456,6 @@ snp_meth_list[[1]] <- merge(snp_out[['all']], meth_out[['all']], by="gene")
 
 names(snp_meth_list) <- "all"
 #names(snp_meth_list) <- names(snp_out)
-
 
 ##################################################################################
 ####################
@@ -477,65 +476,80 @@ colnames(lm_df) <- c("treatment","gene_set", "measure", "n_snps", "rsq", "pval")
 
 for(i in 4){ # this sets the number of snps. greater than or equal to the values here
 
-    for(j in 1:1){ # cycle over the snp classes.
+	for(j in 1:1){ # cycle over the snp classes.
 
-    fout <- snp_meth_list[[j]] %>% filter(n_snp >= i & n_meth >= i )
-    fout[,2:ncol(fout)] <- sapply(fout[,(2:ncol(fout))],as.numeric)
+	fout <- snp_meth_list[[j]] %>% filter(n_snp >= i & n_meth >= i )
+	fout[,2:ncol(fout)] <- sapply(fout[,(2:ncol(fout))],as.numeric)
 
-    # convert all p-values to -log10(p)
-    fout[,grep("fdr",colnames(fout))] <-    lapply(fout[,grep("fdr",colnames(fout))], function(x)  {
-                                                            x <- -log10(x)
-                                                            x
-                                                        }
-                                                    )
+	# convert all p-values to -log10(p)
+	fout[,grep("fdr",colnames(fout))] <- 	lapply(fout[,grep("fdr",colnames(fout))], function(x)  {
+                 											x <- -log10(x)
+                 											x
+                 										}
+                 									)
 
-    # add to df to save:
+	# add to df to save:
 
-    # ah
-        tmp_lm <-summary(lm(fout$ah_fdr_meth ~ fout$ah_fdr))
-        lm_trt <- c("AH")
-        lm_gen <- c("F0-F25")
-        lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
+	# ah
+		tmp_lm <-summary(lm(fout$ah_fdr_meth ~ fout$ah_fdr))
+		lm_trt <- c("AH")
+		lm_gen <- c("F0-F25")
+		lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
 
-        p2 <- ggplot(fout, aes(x=ah_fdr, y=ah_fdr_meth)) +
-                geom_point(pch=21, alpha=0.3, fill="black", size=2) +   theme_classic() +
-                geom_smooth(method = lm, se = TRUE) + 
-#               coord_cartesian(xlim=c(0, 3), ylim= c(0,2.5) ) +
-                ggtitle(paste("Acidification: rsq:",
-                                round(tmp_lm$r.squared, 3), ";",
-                                "pval:", round(tmp_lm$coefficients[2,4], 3) ))+
-                theme(plot.title = element_text(size=10))
+		tmp_cor <- cor.test(x=fout$ah_fdr, y=fout$ah_fdr_meth, method = 'spearman')
+
+		p2 <- ggplot(fout, aes(x=ah_fdr, y=ah_fdr_meth)) +
+				geom_point(pch=21, alpha=0.3, fill="black", size=2) + 	theme_classic() +
+				geom_smooth(method = lm, se = TRUE) + 
+#				coord_cartesian(xlim=c(0, 3), ylim= c(0,2.5) ) +
+				ggtitle(paste("Acidification: rsq:",
+								round(tmp_lm$r.squared, 3), ";",
+								"pval:", round(tmp_lm$coefficients[2,4], 3),
+								"\n",
+								" rho: ", round(tmp_cor$estimate, 3),
+								" pval: ", round(tmp_cor$p.value, 3)))+
+				theme(plot.title = element_text(size=10))
 
 
 
-        tmp_lm <-summary(lm(fout$ha_fdr_meth ~ fout$ha_fdr))
-        lm_trt <- c("HA")
-        lm_gen <- c("F0-F25")
-        lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
+		tmp_lm <-summary(lm(fout$ha_fdr_meth ~ fout$ha_fdr))
+		lm_trt <- c("HA")
+		lm_gen <- c("F0-F25")
+		lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
+		tmp_cor <- cor.test(x=fout$ha_fdr, y=fout$ha_fdr_meth, method = 'spearman')
 
-        p3 <- ggplot(fout, aes(x=ha_fdr, y=(ha_fdr_meth))) +
-                geom_point(pch=21, alpha=0.3, fill="black", size=2) +   theme_classic() +
-                geom_smooth(method = lm, se = TRUE) + 
-#               coord_cartesian(xlim=c(0, 3) ) +
-                ggtitle(paste("Warming: rsq:",
-                                round(tmp_lm$r.squared, 3), ";",
-                                "pval:", round(tmp_lm$coefficients[2,4], 3) ))+
-                theme(plot.title = element_text(size=10))
+		p3 <- ggplot(fout, aes(x=ha_fdr, y=(ha_fdr_meth))) +
+				geom_point(pch=21, alpha=0.3, fill="black", size=2) + 	theme_classic() +
+				geom_smooth(method = lm, se = TRUE) + 
+#				coord_cartesian(xlim=c(0, 3) ) +
+				ggtitle(paste("Warming: rsq:",
+								round(tmp_lm$r.squared, 3), ";",
+								"pval:", round(tmp_lm$coefficients[2,4], 3),
+								"\n",
+								" rho: ", round(tmp_cor$estimate, 3),
+								" pval: ", round(tmp_cor$p.value, 3)))+
+				theme(plot.title = element_text(size=10))
 
-        tmp_lm <-summary(lm(fout$hh_fdr_meth ~ fout$hh_fdr))
-        lm_trt <- c("HH")
-        lm_gen <- c("F0-F25")
-        lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
-        p4 <- ggplot(fout, aes(x=(hh_fdr), y=(hh_fdr_meth))) + 
-                geom_point(pch=21, alpha=0.3, fill="black", size=2) +   theme_classic() +
-                geom_smooth(method = lm, se = TRUE) + 
-    #           coord_cartesian(xlim=c(0, 3)) +
-                ggtitle(paste("Greenhouse: rsq:",
-                                round(tmp_lm$r.squared, 3), ";",
-                                "pval:", round(tmp_lm$coefficients[2,4], 3) ))+
-                theme(plot.title = element_text(size=10))
+		tmp_lm <-summary(lm(fout$hh_fdr_meth ~ fout$hh_fdr))
+		lm_trt <- c("HH")
+		lm_gen <- c("F0-F25")
+		lm_df[nrow(lm_df)+1,] <- c(lm_trt,names(snp_meth_list)[j],lm_gen, i, round(tmp_lm$r.squared, 4), round(tmp_lm$coefficients[2,4], 3))
 
-        ggsave(paste("~/tonsa_epigenetics/figures/meth_vs_cmh_F0_", names(snp_meth_list)[j], "_",  i, "_loci.pdf", sep=""), ggarrange(p2, p3, p4, nrow=1), w=10, h=3)
+		tmp_cor <- cor.test(x=fout$hh_fdr, y=fout$hh_fdr_meth, method = 'spearman')
+
+		p4 <- ggplot(fout, aes(x=(hh_fdr), y=(hh_fdr_meth))) + 
+				geom_point(pch=21, alpha=0.3, fill="black", size=2) + 	theme_classic() +
+				geom_smooth(method = lm, se = TRUE) + 
+	#			coord_cartesian(xlim=c(0, 3)) +
+				ggtitle(paste("OWA: rsq:",
+								round(tmp_lm$r.squared, 3), ";",
+								"pval:", round(tmp_lm$coefficients[2,4], 3),
+								"\n",
+								" rho: ", round(tmp_cor$estimate, 3),
+								" pval: ", round(tmp_cor$p.value, 3)))+
+				theme(plot.title = element_text(size=10))
+
+		ggsave(paste("~/tonsa_epigenetics/figures/meth_vs_cmh_", names(snp_meth_list)[j], "_",  i, "_loci.pdf", sep=""), ggarrange(p2, p3, p4, nrow=1), w=10, h=3.5)
 }
 }
 
@@ -550,7 +564,6 @@ dge <- read.csv("~/tonsa_epigenetics/analysis/DGE_HHHH_vs_AAAAA.txt", header=T, 
 colnames(dge) <- c("baseMean", colnames(dge)[2:ncol(dge)] )
 dge$gene <- row.names(dge)
 
-
 dge_meth_list <- list()
 dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']], by="gene")
 
@@ -558,9 +571,6 @@ names(dge_meth_list) <- "all"
 sapply(dge_meth_list, nrow)
 #     all    genic     exon promoter
 #    2824     2340     1762      413
-
-
-# can categorize each gene as having a significant snp/methylation or not. this is arbitrary for snps, can just use quantile or something?
 
 dge_meth_list[[1]]$category <- "all"
 
@@ -574,14 +584,12 @@ dge_meth <- dge_meth[!is.na(dge_meth$padj),]
 # assign sig or not:
 dge_meth$Meth_hh_sig <- ifelse(dge_meth$hh_fdr_meth_min < 0.05, TRUE, FALSE)
 dge_meth$DGE_sig <- ifelse(dge_meth$padj < 0.05, TRUE, FALSE)
+dge_meth_orig <- dge_meth
 
 dge_meth <- dge_meth[which(dge_meth$n_meth > 4),]
 nrow(dge_meth)
 #1772
 
-chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig))$expected
-chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig),correct = TRUE)
-# p-value = 0.02876, but lower than expected. 
 
 ################################
 # make scatter plot
@@ -590,28 +598,75 @@ chisq.test(table(dge_meth$DGE_sig, dge_meth$Meth_hh_sig),correct = TRUE)
 dge_meth_sig <- dge_meth[which(dge_meth$Meth_hh_sig == TRUE),]
 nrow(dge_meth_sig)
 # 197
+#dge_meth_sig <- dge_meth
 
 head(dge_meth_sig[order(abs(dge_meth_sig$hh_delta_F25_meth)), ])
 
 
 fit1 <- lm(log2FoldChange ~ hh_delta_F25_meth, data = dge_meth_sig)
 summary(fit1)
-#Multiple R-squared:  0.03003,  Adjusted R-squared:  0.02505
+stats <- summary(fit1)
+
+#Multiple R-squared:  0.03003,	Adjusted R-squared:  0.02505
 # F-statistic: 6.036 on 1 and 195 DF,  p-value: 0.01489
+fit2 <- lm(log2FoldChange ~ hh_delta_meth_min, data = dge_meth_sig)
+stats2 <- summary(fit2)
+stats2
+#Coefficients:
+#                 Estimate Std. Error t value Pr(>|t|)
+#(Intercept)       -0.11080    0.03785  -2.927  0.00382 **
+#hh_delta_meth_min -0.52442    0.23467  -2.235  0.02657 *
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#Residual standard error: 0.5306 on 195 degrees of freedom
+#Multiple R-squared:  0.02497,	Adjusted R-squared:  0.01997
+#F-statistic: 4.994 on 1 and 195 DF,  p-value: 0.02657
+cor.test(x=dge_meth_sig$hh_delta_F25_meth, y=dge_meth_sig$log2FoldChange, method = 'spearman')
+#data:  dge_meth_sig$hh_delta_F25_meth and dge_meth_sig$log2FoldChange
+#S = 1443068, p-value = 0.06338
+#alternative hypothesis: true rho is not equal to 0
+#sample estimates:
+#       rho
+#-0.1325323
+
+#data:  dge_meth_sig$hh_delta_F25_meth and dge_meth_sig$log2FoldChange
+#S = 1443068, p-value = 0.03169
+#alternative hypothesis: true rho is less than 0
+#sample estimates:
+#       rho
+#-0.1325323
+
+
+cor.test(x=dge_meth_sig$hh_delta_meth_min, y=dge_meth_sig$log2FoldChange, method = 'spearman')
+#S = 1459882, p-value = 0.04102
+#alternative hypothesis: true rho is not equal to 0
+#sample estimates:
+#       rho
+#-0.1457279
 
 # change in methylation is 
       #  meth$hh_delta_F0_meth <- meth$aa_F00_mean_meth - meth$hh_F25_mean_meth
       # so positive is decrease in HH, negative is increase in HH.
 
 p1_scatter <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_F25_meth*-1))) +
-        geom_hline(yintercept=0, linetype="dashed", color="grey60") +
-        geom_vline(xintercept=0, linetype="dashed", color="grey60") +
-        geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
-        stat_smooth(method = "lm") +
-        # geom_beeswarm() +
-        theme_classic() +
-      xlab("Mean change in OWA methylation") +
-      labs(y = expression(log[2]~(OWA/Ambient)))  # Y-axis label with subscript
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+	    stat_smooth(method = "lm") +
+		theme_classic() +
+  ggtitle("All genes") +
+  # geom_beeswarm() +
+  annotate("text", x = -Inf, y = Inf, 
+           label = paste0("Rsq: ", round(stats$adj.r.squared, 2)),
+           hjust = -0.1, vjust = 1.5, size = 3.5) +
+  annotate("text", x = -Inf, y = Inf, 
+           label = paste0("Pval: ", round(stats$coefficients[2,4], 2)),
+           hjust = -0.1, vjust = 2.8, size = 3.5) +
+	  xlab("Mean change in\nOWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient))) +
+      scale_x_continuous(breaks = c(-0.2, 0, 0.2)) +
+        theme(plot.title = element_text(size = 11))
 
 ggsave(p1_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig.pdf"), h=3, w=4)
 
@@ -621,26 +676,267 @@ ggsave(p1_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig.pdf")
 # max rather than mean
 
 
-dge_meth_sig2 <- dge_meth[which(dge_meth$Meth_hh_sig == TRUE & abs(dge_meth$hh_delta_meth_min) > 0.1),]
-nrow(dge_meth_sig2)
-#154
+p2_scatter <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_meth_min*-1))) +
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+	    stat_smooth(method = "lm") +
+	    # geom_beeswarm() +
+		theme_classic() +
+  ggtitle("All genes") +
+  # geom_beeswarm() +
+  annotate("text", x = -Inf, y = Inf, 
+           label = paste0("Rsq: ", round(stats2$adj.r.squared, 2)),
+           hjust = -0.1, vjust = 1.5, size = 3.5) +
+  annotate("text", x = -Inf, y = Inf, 
+           label = paste0("Pval: ", round(stats2$coefficients[2,4], 2)),
+           hjust = -0.1, vjust = 2.8, size = 3.5) +
+	  xlab("Maximum change in\nOWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient))) +
+      scale_x_continuous(breaks = c(-0.2, 0, 0.2)) +
+        theme(plot.title = element_text(size = 11))
 
-fit1 <- lm(log2FoldChange ~ hh_delta_meth_min, data = dge_meth_sig2)
-summary(fit1)
-# Multiple R-squared:  0.02743, Adjusted R-squared:  0.02103
-# F-statistic: 4.287 on 1 and 152 DF,  p-value: 0.0401
-
-p2_scatter <- ggplot(dge_meth_sig2, aes(y=log2FoldChange, x = (hh_delta_meth_min*-1))) +
-        geom_hline(yintercept=0, linetype="dashed", color="grey60") +
-        geom_vline(xintercept=0, linetype="dashed", color="grey60") +
-        geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
-        stat_smooth(method = "lm") +
-        # geom_beeswarm() +
-        theme_classic() +
-      xlab("Max change in OWA methylation") +
-      labs(y = expression(log[2]~(OWA/Ambient))) # Add inherit.aes = FALSE
 
 ggsave(p2_scatter, file= ("~/tonsa_epigenetics/figures/epi_dge_scatter_sig_MAX.pdf"), h=3, w=4)
+
+
+
+## -----------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
+# cycle over different number of snps and GO categories:
+## -----------------------------------------------------------------------------
+plot_list <- list()
+for(i in 0:8){
+
+dge_meth <- dge_meth_list[[1]]
+# drop na's
+dge_meth <- dge_meth[!is.na(dge_meth$padj),]
+
+# assign sig or not:
+dge_meth$Meth_hh_sig <- ifelse(dge_meth$hh_fdr_meth_min < 0.05, TRUE, FALSE)
+dge_meth$DGE_sig <- ifelse(dge_meth$padj < 0.05, TRUE, FALSE)
+dge_meth_orig <- dge_meth
+
+dge_meth <- dge_meth[which(dge_meth$n_meth > i),]
+nrow(dge_meth)
+#1772
+
+dge_meth_sig <- dge_meth[which(dge_meth$Meth_hh_sig == TRUE),]
+nrow(dge_meth_sig)
+# 197
+
+#dge_meth_sig <- dge_meth
+
+#dge_meth_sig2 <- dge_meth_sig[which(dge_meth_sig$DGE_sig == TRUE),]
+#nrow(dge_meth_sig2)
+
+
+#head(dge_meth_sig[order(abs(dge_meth_sig$hh_delta_F25_meth)), ])
+#head(dge_meth_sig[order(abs(dge_meth_sig$hh_delta_meth_min), decreasing=T), ])
+
+fit1 <- lm(log2FoldChange ~ hh_delta_meth_min, data = dge_meth_sig)
+summary_stats <- summary(fit1)
+
+#Multiple R-squared:  0.03003,	Adjusted R-squared:  0.02505
+# F-statistic: 6.036 on 1 and 195 DF,  p-value: 0.01489
+#cor.test(x=dge_meth_sig$hh_delta_meth, y=dge_meth_sig$log2FoldChange, method = 'spearman')
+
+
+p1_scatter <- ggplot(dge_meth_sig, aes(y=log2FoldChange, x = (hh_delta_meth_min*-1))) +
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+	    stat_smooth(method = "lm") +
+	    # geom_beeswarm() +
+		theme_classic() +
+		ggtitle(paste0("# meth loci > ", i,
+									"; Rsq: ", round(summary_stats$adj.r.squared,3), 
+									"; Pval: ",round(summary_stats$coefficients[2,4], 3) )) +
+	  xlab("Max change in OWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient)))  # Y-axis label with subscript
+
+#ggsave(p1_scatter,
+#	file= (paste0("~/tonsa_epigenetics/figures/epi_dge_scatter_sig_nmeth_",i+1,".pdf")), 
+#		h=3, w=4)
+
+plot_list[[i+1]] <- p1_scatter
+
+}
+
+
+library(ggpubr)
+multipanel_fig <- ggarrange(plotlist = plot_list, 
+                           ncol = 3, nrow=3,
+                           common.legend = TRUE,
+                           legend = "bottom")
+
+ggsave(multipanel_fig,file= "~/tonsa_epigenetics/figures/epi_dge_scatter_sig_multi_panel.pdf", 
+		h=8, w=12)
+
+
+
+## -----------------------------------------------------------------------------
+# incorporate GO categories
+## -----------------------------------------------------------------------------
+
+# significant go terms are:
+# ~/tonsa_epigenetics/analysis/go_enrich/ha_CC_epigenetics_GO.txt
+# ~/tonsa_epigenetics/analysis/go_enrich/ha_MF_epigenetics_GO.txt
+# ~/tonsa_epigenetics/analysis/go_enrich/ha_BP_epigenetics_GO.txt
+
+go_terms <- read.table("~/tonsa_epigenetics/analysis/go_enrich/meth_gene_universe.txt", header=F)
+colnames(go_terms) <- c("gene", "go_terms")
+geneID2GO <- read.table(file = "~/tonsa_epigenetics/analysis/go_enrich/meth_gene_universe.txt")
+
+dat <- read.table("~/tonsa_genomics/analysis/gene_level_analysis/methylation_results_table.txt", header=T)
+
+siggo <- read.csv("~/tonsa_epigenetics/analysis/go_enrich/hh_epigenetics_GO.txt", header=T, sep="\t")
+
+
+
+dge_meth <- dge_meth_list[[1]]
+
+dge_meth <- dge_meth[!is.na(dge_meth$padj),]
+dge_meth$Meth_hh_sig <- ifelse(dge_meth$hh_fdr_meth_min < 0.05, TRUE, FALSE)
+dge_meth$DGE_sig <- ifelse(dge_meth$padj < 0.1, TRUE, FALSE)
+dge_meth_orig <- dge_meth
+nrow(dge_meth)
+
+bpmap <- read.csv("~/tonsa_epigenetics/analysis/go_enrich/hh_BP_genetoGOmapping.txt",
+	sep="\t", stringsAsFactors=F)
+mfmap <- read.csv("~/tonsa_epigenetics/analysis/go_enrich/hh_MF_genetoGOmapping.txt",
+	sep="\t", stringsAsFactors=F)
+ccmap <- read.csv("~/tonsa_epigenetics/analysis/go_enrich/hh_CC_genetoGOmapping.txt",
+	sep="\t", stringsAsFactors=F)
+
+
+
+matching_rows <- data.frame()
+for(i in 1:length(siggo$GO.ID)){
+	if(siggo$ontology[i] == "BP"){
+	tmp_genes <- bpmap$genes[grep(siggo$GO.ID[i], bpmap$goterm)]
+	tmp_goname <- siggo$Term[grep(siggo$GO.ID[i], bpmap$goterm)]
+	}
+	#if(siggo$ontology[i] == "MF"){
+	#tmp_genes <- mfmap$genes[grep(siggo$GO.ID[i], mfmap$goterm)]
+	#tmp_goname <- siggo$Term[grep(siggo$GO.ID[i], mfmap$goterm)]
+	#}
+	#if(siggo$ontology[i] == "CC"){
+	#tmp_genes <- ccmap$genes[grep(siggo$GO.ID[i], ccmap$goterm)]
+	#tmp_goname <- siggo$Term[grep(siggo$GO.ID[i], ccmap$goterm)]
+	#}
+
+	print(tmp_goname)
+	tmp_genes_clean <- unlist(strsplit(tmp_genes, ","))
+
+	matched_genes <- tmp_genes_clean[tmp_genes_clean %in% dge_meth$gene]
+
+	# See how many genes were matched
+	length(matched_genes)
+	#get rows
+	tmp_rows <- dge_meth[dge_meth$gene %in% tmp_genes_clean, ]
+	matching_rows <- rbind(matching_rows, tmp_rows)
+}
+
+nrow(matching_rows)
+uniqdf <- unique(matching_rows)
+nrow(uniqdf)
+# 137
+
+uniqdf$Meth_hh_sig <- ifelse(uniqdf$hh_fdr_meth_min < 0.05, TRUE, FALSE)
+uniqdf$DGE_sig <- ifelse(uniqdf$padj < 0.1, TRUE, FALSE)
+
+uniqdf <- uniqdf[which(uniqdf$n_meth > 4),]
+
+
+uniqdf_sig <- uniqdf[which(uniqdf$Meth_hh_sig == TRUE),]
+nrow(uniqdf_sig)
+#26
+
+fit1 <- lm(log2FoldChange ~ hh_delta_F25_meth, data = uniqdf_sig)
+summary_stats <- summary(fit1)
+
+ #                 Estimate Std. Error t value Pr(>|t|)
+#(Intercept)       -0.00142    0.08994  -0.016   0.9875
+#hh_delta_F25_meth -5.43158    2.29840  -2.363   0.0266 *
+#Residual standard error: 0.4212 on 24 degrees of freedom
+#Multiple R-squared:  0.1888,	Adjusted R-squared:  0.155
+#F-statistic: 5.585 on 1 and 24 DF,  p-value: 0.02656
+
+cor.test(x=uniqdf_sig$hh_delta_F25_meth, y=uniqdf_sig$log2FoldChange, method = 'spearman')
+#S = 4010, p-value = 0.06289
+#alternative hypothesis: true rho is not equal to 0
+#sample estimates:
+#       rho
+#-0.3709402
+
+p1_go <-	ggplot(uniqdf_sig, aes(y=log2FoldChange, x = (hh_delta_F25_meth*-1))) +
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+	    stat_smooth(method = "lm") +
+	    # geom_beeswarm() +
+		theme_classic() +
+	    		ggtitle("Functionally Enriched Genes") +
+	    # geom_beeswarm() +
+	    annotate("text", x = Inf, y = -Inf, 
+           label = paste0("Rsq: ", round(summary_stats$adj.r.squared, 2)),
+           hjust = 1.1, vjust = -1.8, size = 3.5) +
+  annotate("text", x = Inf, y = -Inf, 
+           label = paste0("Pval: ", round(summary_stats$coefficients[2,4], 2)),
+           hjust = 1.1, vjust = -0.5, size = 3.5) +
+		theme_classic() +
+		  theme(plot.title = element_text(size = 11)) +
+	  xlab("Mean change in\nOWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient))) +
+        scale_x_continuous(breaks = c(-0.2, 0, 0.2))
+
+fit1 <- lm(log2FoldChange ~ hh_delta_meth_min, data = uniqdf_sig)
+summary_stats <- summary(fit1)
+#                  Estimate Std. Error t value Pr(>|t|)
+#(Intercept)       -0.08487    0.08141  -1.043   0.3075
+#hh_delta_meth_min -1.15184    0.45314  -2.542   0.0179 *
+#Residual standard error: 0.4151 on 24 degrees of freedom
+#Multiple R-squared:  0.2121,	Adjusted R-squared:  0.1793
+#F-statistic: 6.461 on 1 and 24 DF,  p-value: 0.0179
+
+#cor.test(x=uniqdf_sig$hh_delta_meth_min, y=uniqdf_sig$log2FoldChange, method = 'spearman', alternative="l")
+#data:  uniqdf_sig$hh_delta_meth_min and uniqdf_sig$log2FoldChange
+#S = 3893.3, p-value = 0.04927
+#alternative hypothesis: true rho is less than 0
+#sample estimates:
+#       rho
+#-0.3310534
+
+p2_go <-	ggplot(uniqdf_sig, aes(y=log2FoldChange, x = (hh_delta_meth_min*-1))) +
+		geom_hline(yintercept=0, linetype="dashed", color="grey60") +
+		geom_vline(xintercept=0, linetype="dashed", color="grey60") +
+		geom_point(alpha=0.8, shape=21, fill="black", size=1.5)+
+	    stat_smooth(method = "lm") +
+	    		ggtitle("Functionally Enriched Genes") +
+	    # geom_beeswarm() +
+	    annotate("text", x = Inf, y = -Inf, 
+           label = paste0("Rsq: ", round(summary_stats$adj.r.squared, 2)),
+           hjust = 1.1, vjust = -1.8, size = 3.5) +
+  annotate("text", x = Inf, y = -Inf, 
+           label = paste0("Pval: ", round(summary_stats$coefficients[2,4], 2)),
+           hjust = 1.1, vjust = -0.5, size = 3.5) +
+		theme_classic() +
+		  theme(plot.title = element_text(size = 11)) +
+	  xlab("Maximum change in\nOWA methylation") +
+      labs(y = expression(log[2]~(OWA/Ambient))) +
+        scale_x_continuous(breaks = c(-0.2, 0, 0.2))
+
+
+
+multipanel_fig <- ggarrange(p1_go, p2_go, 
+                           ncol = 2, nrow=1)
+
+ggsave(multipanel_fig,file= "~/tonsa_epigenetics/figures/dge_meth_GOTERMS.pdf", 
+		h=4, w=7)
 
 
 
@@ -656,7 +952,7 @@ colnames(dge) <- c("baseMean", colnames(dge)[2:ncol(dge)] )
 dge$gene <- row.names(dge)
 
 dge_meth_list <- list()
-dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']],      by="gene")
+dge_meth_list[[1]] <- inner_join(dge, meth_out[['all']], by="gene")
 
 # calc some summary info:
 dge_meth <- dge_meth_list[[1]]
@@ -678,12 +974,12 @@ mu2 <- ddply(dge_meth, "DGE_sig", summarise, grp.se=ster((hh_F25_mean_meth)))
 #1   FALSE 0.004657732
 #2    TRUE 0.004277920
 ks.test((dge_meth$hh_F25_mean_meth[dge_meth$DGE_sig == TRUE]), 
-        (dge_meth$hh_F25_mean_meth[dge_meth$DGE_sig == FALSE]))
+		(dge_meth$hh_F25_mean_meth[dge_meth$DGE_sig == FALSE]))
 # D = 0.25659, p-value = 0.01929
 
 p1 <- ggplot(dge_meth, aes(x=hh_F25_mean_meth,y=DGE_sig,fill=DGE_sig, group= DGE_sig)) +
   geom_density_ridges(scale = 4.5, alpha=0.3,
-    jittered_points = TRUE,
+  	jittered_points = TRUE,
     position = position_points_jitter(width = 0.0, height = 0),
     point_shape = '', point_size = 1.5, point_alpha = 0.5
   ) + 
@@ -691,14 +987,17 @@ p1 <- ggplot(dge_meth, aes(x=hh_F25_mean_meth,y=DGE_sig,fill=DGE_sig, group= DGE
   scale_x_continuous(expand = c(0, 0)) + 
   coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
   theme_ridges() +
-        scale_fill_manual(values=c("gray50", "#9B1E03")) +
-        scale_color_manual(values=c("gray50", "#9B1E03")) +
-    #geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
+  		scale_fill_manual(values=c("gray50", "#9B1E03")) +
+		scale_color_manual(values=c("gray50", "#9B1E03")) +
+	#geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
     #         linetype="dashed", size=1.5) +
-    theme(axis.text=element_text(size=14),
+	theme(axis.text=element_text(size=14),
         axis.title=element_text(size=16,face="bold")) +
-    stat_summary(size=2, shape=21)
-    #geom_point(aes(x = grp.mean, y = DGE_sig, fill=DGE_sig),size=6, shape=21, data = mu, inherit.aes = F)
+	stat_summary(size=2, shape=21) +
+	ggtitle("Plasticity") +
+	theme(plot.title = element_text(size = 11)) 
+
+	#geom_point(aes(x = grp.mean, y = DGE_sig, fill=DGE_sig),size=6, shape=21, data = mu, inherit.aes = F)
 
 
 ggsave(p1, file= ("~/tonsa_epigenetics/figures/epi_plasticity_GH.pdf"), h=3.5, w=5.5)
@@ -715,23 +1014,42 @@ pviolin <- ggplot(dge_meth, aes(y=hh_F25_mean_meth, x=plasticity, fill=plasticit
   #coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
   theme_classic() +
    #geom_quasirandom() +
-        scale_fill_manual(values=c("gray50", "#9B1E03")) +
-        scale_color_manual(values=c("gray50", "#9B1E03")) +
-    #geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
+  		scale_fill_manual(values=c("gray50", "#9B1E03")) +
+		scale_color_manual(values=c("gray50", "#9B1E03")) +
+	#geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
     #         linetype="dashed", size=1.5) +
-    theme(legend.position="none") +
+	theme(legend.position="none") +
   #stat_summary(fun = mean, geom = "crossbar", 
   #             fun.min = mean, fun.max = mean, 
   #             width = 0.3, size = 0.75, color = "black") +
-    stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
-    xlab(NULL) +
-    ylab("OWA % Methylation")
+	stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
+	xlab(" ") +
+	ylab("OWA % Methylation")+
+		ggtitle("Plasticity") +
+	theme(plot.title = element_text(size = 11)) 
 
 ggsave(pviolin, file= ("~/tonsa_epigenetics/figures/epi_plasticity_violin_GH.pdf"), h=3.5, w=3.5)
 
-ggsave(ggarrange(p1_scatter, pviolin, labels="AUTO"), 
-            file="~/tonsa_epigenetics/figures/epi_plasticity_combined_GH.pdf",
-            h=3, w=6)
+#ggsave(ggarrange(p1_scatter, pviolin, labels="AUTO"), 
+#			file="~/tonsa_epigenetics/figures/epi_plasticity_combined_GH.pdf",#
+#			h=3, w=6)
+
+
+
+
+# make joint figure with all:
+
+alloutp <- ggarrange(p2_scatter, p2_go, pviolin, labels="AUTO", nrow=1, ncol=3)
+
+ggsave(alloutp, 
+			file="~/tonsa_epigenetics/figures/epi_plasticity_combined_GH.pdf",
+			h=3, w=8)
+alloutp2 <- ggarrange(p1_scatter, p1_go, pviolin, labels="AUTO", nrow=1, ncol=3)
+
+ggsave(alloutp2, 
+			file="~/tonsa_epigenetics/figures/epi_plasticity_combined_GH_means.pdf",
+			h=3, w=8)
+
 
 
 #### ambient
@@ -764,7 +1082,7 @@ mu2 <- ddply(dge_meth, "DGE_sig", summarise, grp.se=ster((aa_F25_mean_meth)))
 #2    TRUE 0.006781181
 
 ks.test((dge_meth$aa_F25_mean_meth[dge_meth$DGE_sig == TRUE]), 
-        (dge_meth$aa_F25_mean_meth[dge_meth$DGE_sig == FALSE]))
+		(dge_meth$aa_F25_mean_meth[dge_meth$DGE_sig == FALSE]))
 # D = 0.16136, p-value = 8.66e-08
 
 dge_meth$plasticity <- ifelse(dge_meth$DGE_sig == TRUE, "Plastic\nGenes", "Non-plastic\nGenes")
@@ -777,17 +1095,17 @@ pviolin2 <- ggplot(dge_meth, aes(y=aa_F25_mean_meth, x=plasticity, fill=plastici
   #coord_cartesian(clip = "off") + # to avoid clipping of the very top of the top ridgeline
   theme_classic() +
    #geom_quasirandom() +
-        scale_fill_manual(values=c("gray50", "#9B1E03")) +
-        scale_color_manual(values=c("gray50", "#9B1E03")) +
-    #geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
+  		scale_fill_manual(values=c("gray50", "#9B1E03")) +
+		scale_color_manual(values=c("gray50", "#9B1E03")) +
+	#geom_vline(data=mu, aes(xintercept=grp.mean, color=DGE_sig),
     #         linetype="dashed", size=1.5) +
-    theme(legend.position="none") +
+	theme(legend.position="none") +
   #stat_summary(fun = mean, geom = "crossbar", 
   #             fun.min = mean, fun.max = mean, 
   #             width = 0.3, size = 0.75, color = "black") +
-    stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
-    xlab(NULL) +
-    ylab("Ambient % Methylation")
+	stat_summary(size=5, fun = mean, geom="point", shape=21, color="black")+
+	xlab(NULL) +
+	ylab("Ambient % Methylation")
 
 ggsave(pviolin2, file= ("~/tonsa_epigenetics/figures/epi_plasticity_AM.pdf"), h=3, w=4)
 
@@ -885,5 +1203,3 @@ ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO")
 
 ggsave("~/tonsa_epigenetics/figures/perc_meth_vs_expression_S12.png",ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO"), h=4, w=7)
 ggsave("~/tonsa_epigenetics/figures/perc_meth_vs_expression_S12.pdf",ggpubr::ggarrange(p1, p2, widths = c(0.4, 0.6), labels="AUTO"), h=4, w=7)
-
-```
