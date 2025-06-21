@@ -1,9 +1,4 @@
 # gene level analysis
-
-cleaning on Feb 9, to make suitable for pub. see file `gene_level_analysis_2023_02_25` for previous version with more data exploration.
-
-
-
 files of needed:
 
 annotation gff: `~/tonsa_annotation/gawn/05_results/GCA_900241095.1_Aton1.0_genomic.fa.gff3`
